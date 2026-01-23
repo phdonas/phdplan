@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.db
+*.sqlite
+env/
+venv/
+.env
+.ipynb_checkpoints/
+.DS_Store

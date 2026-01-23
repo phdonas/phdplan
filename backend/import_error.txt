@@ -1,0 +1,18 @@
+Error: [Errno 13] Permission denied: 'c:\\Users\\Lenovo\\OneDrive\\0 Paulo\\1 ATUAL\\0 UDEMY GROWTH\\0 Plano_Acao_Growth_Udemy_Jan-Mar_2026_RegraOperacional.xlsx'
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\OneDrive\0 Paulo\1 ATUAL\0 UDEMY GROWTH\PHDPlan\backend\importer.py", line 30, in import_data
+    df_atividades = pd.read_excel(excel_file, sheet_name='Plano Diário')
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\excel\_base.py", line 495, in read_excel
+    io = ExcelFile(
+         ^^^^^^^^^^
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\excel\_base.py", line 1550, in __init__
+    ext = inspect_excel_format(
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\excel\_base.py", line 1402, in inspect_excel_format
+    with get_handle(
+         ^^^^^^^^^^^
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\common.py", line 882, in get_handle
+    handle = open(handle, ioargs.mode)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 13] Permission denied: 'c:\\Users\\Lenovo\\OneDrive\\0 Paulo\\1 ATUAL\\0 UDEMY GROWTH\\0 Plano_Acao_Growth_Udemy_Jan-Mar_2026_RegraOperacional.xlsx'

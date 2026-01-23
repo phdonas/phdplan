@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHDPlan - Gestão</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 h-screen overflow-hidden">
+
+    <!-- Login View -->
+    <div id="login-view" class="flex items-center justify-center h-full">
+        <div class="glass p-8 rounded-2xl shadow-xl w-96">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">PHDPlan</h1>
+            <p class="text-gray-500 text-center mb-8" id="login-subtitle">Entre para gerenciar seu crescimento</p>
+
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="email" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        placeholder="seu@email.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Senha</label>
+                    <input type="password" id="password" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        placeholder="••••••••">
+                </div>
+                <button type="submit" id="btn-login-submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    Entrar
+                </button>
+            </form>
+
+            <div class="mt-4 text-center">
+                <button onclick="app.toggleRegisterMode()" class="text-sm text-indigo-600 hover:text-indigo-800"
+                    id="btn-toggle-register">
+                    Não tem conta? Crie agora
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard View (Hidden by default) -->
+    <div id="dashboard-view" class="hidden h-full flex flex-col">
+        <!-- Header -->
+        <header class="glass h-16 flex items-center justify-between px-6 shadow-sm z-10">
+            <div class="flex items-center space-x-4">
+                <span class="text-xl font-bold text-indigo-900">PHDPlan</span>
+                <nav class="space-x-4 ml-8">
+                    <button
+                        class="text-gray-600 hover:text-indigo-600 font-medium px-3 py-1 rounded-md transition-colors"
+                        onclick="app.setView('kanban')">Kanban</button>
+                    <button
+                        class="text-gray-600 hover:text-indigo-600 font-medium px-3 py-1 rounded-md transition-colors"
+                        onclick="app.setView('calendar')">Calendário</button>
+                    <button
+                        class="text-gray-600 hover:text-indigo-600 font-medium px-3 py-1 rounded-md transition-colors"
+                        onclick="app.setView('insights')">Insights</button>
+                    <button
+                        class="text-gray-600 hover:text-indigo-600 font-medium px-3 py-1 rounded-md transition-colors"
+                        onclick="app.setView('strategy')">Estratégia</button>
+                    <button
+                        class="text-gray-600 hover:text-indigo-600 font-medium px-3 py-1 rounded-md transition-colors"
+                        onclick="app.setView('table')">Tabela</button>
+                </nav>
+            </div>
+            <div class="flex items-center">
+                <button id="btn-admin-view" onclick="app.setView('admin')"
+                    class="mr-4 text-sm text-purple-600 hover:text-purple-800 font-bold hidden">👑 Admin</button>
+                <button onclick="app.openShareModal()"
+                    class="mr-4 text-sm text-indigo-600 hover:text-indigo-800 font-medium">🔗 Compartilhar</button>
+                <button onclick="app.exportData()"
+                    class="mr-4 text-sm text-indigo-600 hover:text-indigo-800 font-medium">📥 Exportar Excel</button>
+                <span class="text-sm text-gray-500 mr-4">Bem-vindo</span>
+                <button onclick="app.logout()" class="text-sm text-red-500 hover:text-red-700">Sair</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto p-6 relative" id="main-content">
+            <!-- Kanban Board -->
+            <div id="kanban-view" class="h-full">
+                <div class="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mr-4">Quadro de Atividades</h2>
+
+                    <!-- Date Filter -->
+                    <div class="flex items-center space-x-2 bg-white p-1 rounded border shadow-sm">
+                        <span class="text-xs text-gray-500 font-medium pl-2">Data:</span>
+                        <input type="date" id="filter-date" class="text-sm border-none focus:ring-0 text-gray-700">
+                    </div>
+
+                    <!-- Week Filter -->
+                    <div class="flex items-center space-x-2 bg-white p-1 rounded border shadow-sm">
+                        <span class="text-xs text-gray-500 font-medium pl-2">Semana:</span>
+                        <select id="filter-week-type"
+                            class="text-sm border-none focus:ring-0 text-gray-700 bg-transparent">
+                            <option value="all">Todas</option>
+                            <option value="current">Semana Atual</option>
+                            <option value="previous">Semana Anterior</option>
+                            <option value="next">Próxima Semana</option>
+                            <option value="number">Número da Semana</option>
+                        </select>
+                        <input type="number" id="filter-week-num" min="1" max="52" placeholder="#"
+                            class="hidden w-16 text-sm border-l pl-2 focus:ring-0">
+                    </div>
+                </div>
+                <div class="flex space-x-4 h-[calc(100%-4rem)] overflow-x-auto pb-2" id="kanban-board">
+                    <!-- Columns -->
+                    <!-- A Fazer -->
+                    <div class="min-w-[300px] w-[300px] bg-white/50 rounded-xl p-4 flex flex-col"
+                        ondrop="app.drop(event, 'A fazer')" ondragover="app.allowDrop(event)">
+                        <h3 class="font-bold text-gray-700 mb-4 flex items-center justify-between">
+                            A fazer <span class="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded-full"
+                                id="count-afazer">0</span>
+                        </h3>
+                        <div class="flex-1 overflow-y-auto space-y-3" id="col-afazer"></div>
+                    </div>
+
+                    <!-- Fazendo -->
+                    <div class="min-w-[300px] w-[300px] bg-blue-50/50 rounded-xl p-4 flex flex-col"
+                        ondrop="app.drop(event, 'Fazendo')" ondragover="app.allowDrop(event)">
+                        <h3 class="font-bold text-blue-700 mb-4 flex items-center justify-between">
+                            Fazendo <span class="bg-blue-200 text-blue-600 text-xs px-2 py-0.5 rounded-full"
+                                id="count-fazendo">0</span>
+                        </h3>
+                        <div class="flex-1 overflow-y-auto space-y-3" id="col-fazendo"></div>
+                    </div>
+
+                    <!-- Feito -->
+                    <div class="min-w-[300px] w-[300px] bg-green-50/50 rounded-xl p-4 flex flex-col"
+                        ondrop="app.drop(event, 'Feito')" ondragover="app.allowDrop(event)">
+                        <h3 class="font-bold text-green-700 mb-4 flex items-center justify-between">
+                            Feito <span class="bg-green-200 text-green-600 text-xs px-2 py-0.5 rounded-full"
+                                id="count-feito">0</span>
+                        </h3>
+                        <div class="flex-1 overflow-y-auto space-y-3" id="col-feito"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar Mode -->
+            <div id="calendar-view" class="hidden h-full">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Calendário</h2>
+                <div id="calendar-container" class="bg-white rounded-xl shadow p-6 h-[600px]">
+                    <!-- Placeholder for Calendar -->
+                    <p class="text-gray-500 text-center mt-20">Visualização de Calendário em construção...</p>
+                </div>
+            </div>
+
+            <!-- Insights Mode -->
+            <div id="insights-view" class="hidden h-full">
+                <div class="flex justify-between items-center mb-6">
+                    <h2
+                        class="text-2xl font-bold text-gray-800 bg-yellow-50 inline-block px-3 py-1 rounded-lg border border-yellow-200">
+                        Banco de Insights 💡
+                    </h2>
+                    <button onclick="app.openTaskModal(null, 'insight')"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition-colors">
+                        + Novo Insight
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="insights-list">
+                    <!-- Cards -->
+                </div>
+            </div>
+
+            <!-- Strategy Mode. -->
+            <div id="strategy-view" class="hidden h-full">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Estratégia Semanal</h2>
+                <div class="space-y-4" id="strategy-list">
+                    <!-- Cards -->
+                </div>
+            </div>
+
+            <!-- Table Mode (New) -->
+            <div id="table-view" class="hidden h-full flex flex-col">
+                <div class="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4 mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800 mr-4">Visão Detalhada (Tabela)</h2>
+                    <!-- Date Filter -->
+                    <div class="flex items-center space-x-2 bg-white p-1 rounded border shadow-sm">
+                        <span class="text-xs text-gray-500 font-medium pl-2">Data:</span>
+                        <input type="date" id="filter-date-table"
+                            class="text-sm border-none focus:ring-0 text-gray-700">
+                    </div>
+
+                    <!-- Week Filter -->
+                    <div class="flex items-center space-x-2 bg-white p-1 rounded border shadow-sm">
+                        <span class="text-xs text-gray-500 font-medium pl-2">Semana:</span>
+                        <select id="filter-week-type-table"
+                            class="text-sm border-none focus:ring-0 text-gray-700 bg-transparent">
+                            <option value="all">Todas</option>
+                            <option value="current">Semana Atual</option>
+                            <option value="previous">Semana Anterior</option>
+                            <option value="next">Próxima Semana</option>
+                            <option value="number">Número da Semana</option>
+                        </select>
+                        <input type="number" id="filter-week-num-table" min="1" max="52" placeholder="#"
+                            class="hidden w-16 text-sm border-l pl-2 focus:ring-0">
+                    </div>
+                </div>
+                <div class="glass rounded-xl shadow overflow-hidden flex-1">
+                    <div class="overflow-x-auto h-full">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Data</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Dia Sem.</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Tipo Dia</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Tema Macro</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Ângulo</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Canal</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        O que</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Como</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        KPI</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Duração</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        CTA</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Status</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="tasks-table-body">
+                                <!-- Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Mode -->
+            <div id="admin-view" class="hidden h-full flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Administração de Usuários</h2>
+                    <button onclick="app.openUserModal()"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition-colors">
+                        + Novo Usuário
+                    </button>
+                </div>
+
+                <div class="glass rounded-xl shadow overflow-hidden flex-1">
+                    <div class="overflow-x-auto h-full">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        ID</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Email</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Role</th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="users-table-body">
+                                <!-- Users Row -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <!-- Checklist Modal -->
+    <div id="checklist-modal"
+        class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96 shadow-2xl transform transition-all scale-100">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Checklist de Conteúdo</h3>
+            <p class="text-sm text-gray-500 mb-4">Confirme as etapas concluídas:</p>
+
+            <div class="space-y-3 mb-6">
+                <div class="flex items-center">
+                    <input type="checkbox" checked
+                        class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300">
+                    <span class="ml-2 text-gray-700">Roteiro / Pauta</span>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" checked
+                        class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300">
+                    <span class="ml-2 text-gray-700">Gravação</span>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" checked
+                        class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300">
+                    <span class="ml-2 text-gray-700">Edição</span>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" checked
+                        class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300">
+                    <span class="ml-2 text-gray-700">Thumbnail / Capa</span>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" checked
+                        class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300">
+                    <span class="ml-2 text-gray-700">Upload / Publicação</span>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button id="close-modal"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors">Fechar</button>
+                <button class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                    onclick="document.getElementById('checklist-modal').classList.add('hidden')">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal (Create/Edit) -->
+    <div id="task-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div
+            class="glass p-6 rounded-2xl shadow-xl w-[95%] max-w-[1800px] bg-white overflow-hidden flex flex-col max-h-[90vh]">
+            <h2 id="task-modal-title" class="text-2xl font-bold text-gray-800 mb-4 px-4">Nova Tarefa</h2>
+            <form id="task-form" class="flex flex-col flex-1 overflow-hidden">
+                <input type="hidden" id="task-id">
+
+                <!-- Scrollable Content Area -->
+                <div class="flex-1 overflow-y-auto px-6 py-4">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                        <!-- LEFT COLUMN: Short Fields -->
+                        <div class="lg:col-span-1 space-y-4">
+                            <h4 class="font-semibold text-gray-700 border-b pb-2">Detalhes</h4>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Data</label>
+                                    <input type="date" id="task-date"
+                                        class="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-2 border">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Dia Sem.</label>
+                                    <input type="text" id="task-dia-semana"
+                                        class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Tipo Dia</label>
+                                <input type="text" id="task-tipo-dia"
+                                    class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Ângulo</label>
+                                <input type="text" id="task-angulo"
+                                    class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Canal</label>
+                                <input type="text" id="task-canal"
+                                    class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">KPI / Meta</label>
+                                <input type="text" id="task-kpi"
+                                    class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Duração</label>
+                                <input type="text" id="task-duracao"
+                                    class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Prioridade</label>
+                                    <select id="task-priority"
+                                        class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border h-10">
+                                        <option value="Alta">Alta</option>
+                                        <option value="Média" selected>Média</option>
+                                        <option value="Baixa">Baixa</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                                    <select id="task-status"
+                                        class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border h-10">
+                                        <option value="A fazer">A fazer</option>
+                                        <option value="Fazendo">Fazendo</option>
+                                        <option value="Feito">Feito</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Categoria</label>
+                                <select id="task-category"
+                                    class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
+                                    <option value="Geral">Geral</option>
+                                    <option value="Conteúdo">Conteúdo</option>
+                                    <option value="Gestão">Gestão</option>
+                                    <option value="Financeiro">Financeiro</option>
+                                </select>
+                            </div>
+
+                            <!-- Hidden Fields kept for logic -->
+                            <input type="hidden" id="task-onde">
+                        </div>
+
+                        <!-- RIGHT COLUMN: Long Text Fields -->
+                        <div class="lg:col-span-2 space-y-6">
+                            <h4 class="font-semibold text-gray-700 border-b pb-2">Conteúdo e Ação</h4>
+
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Tema Macro</label>
+                                <textarea id="task-tema-macro" rows="4"
+                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-3 border resize-y bg-gray-50 focus:bg-white transition-colors"
+                                    placeholder="Digite o tema macro..."></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">O que (Descrição)</label>
+                                <textarea id="task-desc" rows="4" required
+                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-3 border resize-y bg-gray-50 focus:bg-white transition-colors"
+                                    placeholder="O que deve ser feito?"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Como</label>
+                                <textarea id="task-como" rows="4"
+                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-3 border resize-y bg-gray-50 focus:bg-white transition-colors"
+                                    placeholder="Como executar esta tarefa?"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Descrição da Ação
+                                    (CTA)</label>
+                                <textarea id="task-cta" rows="4"
+                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-3 border resize-y bg-gray-50 focus:bg-white transition-colors"
+                                    placeholder="Call to Action ou detalhe da ação..."></textarea>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Footer with Actions -->
+                <div class="flex justify-between items-center bg-gray-50 px-6 py-4 border-t">
+                    <button type="button" id="btn-delete-task"
+                        class="hidden text-red-600 hover:text-red-800 text-sm font-medium transition-colors flex items-center">
+                        🗑️ Excluir Tarefa
+                    </button>
+                    <div class="flex space-x-3 ml-auto">
+                        <button type="button"
+                            class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                            onclick="app.closeTaskModal()">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                            Salvar Alterações
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- User Modal (Admin) -->
+    <div id="user-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="glass p-6 rounded-2xl shadow-xl w-96 bg-white">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Novo Usuário</h2>
+            <form id="user-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="new-user-email" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Senha</label>
+                    <input type="password" id="new-user-password" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button"
+                        class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                        onclick="document.getElementById('user-modal').classList.add('hidden')">Cancelar</button>
+                    <button type="submit"
+                        class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                        Criar Usuário
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/app.js?v=3"></script>
+</body>
+
+</html>
