@@ -7,17 +7,31 @@ import models, database, auth
 from datetime import date, timedelta
 from pydantic import BaseModel
 import pandas as pd
+import os
+from dotenv import load_dotenv
 
 from fastapi.staticfiles import StaticFiles
+
+# Load environment variables
+load_dotenv()
 
 # Create tables
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="PHDPlan API")
 
+# Configure CORS for production and development
+# In production, Render will provide the frontend from the same domain
+allowed_origins = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",
+    os.getenv("FRONTEND_URL", "*")  # Allow environment variable for frontend URL
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins if os.getenv("ENVIRONMENT") == "production" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,6 +51,11 @@ def get_db():
 @app.get("/")
 def read_root():
     return {"message": "PHDPlan Backend Operational"}
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint for monitoring"""
+    return {"status": "healthy", "service": "PHDPlan API"}
 
 # --- AUTH ENDPOINTS ---
 class Token(BaseModel):
