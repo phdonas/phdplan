@@ -163,7 +163,7 @@ git remote add origin https://github.com/SEU-USUARIO/phdplan.git
 
 ```bash
 git branch -M main
-git push -u origin main
+git push -u origin main 
 ```
 
 Você precisará fazer login:
