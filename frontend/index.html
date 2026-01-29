@@ -272,10 +272,16 @@
             <div id="admin-view" class="hidden h-full flex flex-col">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold text-gray-800">Administração de Usuários</h2>
-                    <button onclick="app.openUserModal()"
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition-colors">
-                        + Novo Usuário
-                    </button>
+                    <div class="flex space-x-3">
+                        <button onclick="app.openImportModal()"
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition-colors flex items-center">
+                            📁 Importar Excel
+                        </button>
+                        <button onclick="app.openUserModal()"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition-colors">
+                            + Novo Usuário
+                        </button>
+                    </div>
                 </div>
 
                 <div class="glass rounded-xl shadow overflow-hidden flex-1">
@@ -529,6 +535,80 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Import Modal (Admin) -->
+    <div id="import-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="glass p-6 rounded-2xl shadow-xl w-96 bg-white">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Importar Dados do Excel</h2>
+            <form id="import-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Selecione o arquivo Excel</label>
+                    <input type="file" id="import-file" accept=".xlsx,.xls" required class="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-md file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-indigo-50 file:text-indigo-700
+                        hover:file:bg-indigo-100">
+                    <p class="mt-2 text-xs text-gray-500">
+                        Arquivo deve conter as abas: "Plano Diário" e "Temas Semanais"
+                    </p>
+                </div>
+                <div id="import-status" class="hidden">
+                    <div class="flex items-center justify-center space-x-2">
+                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+                        <span class="text-sm text-gray-600">Importando...</span>
+                    </div>
+                </div>
+                <div id="import-result" class="hidden text-sm"></div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button"
+                        class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                        onclick="app.closeImportModal()">Cancelar</button>
+                    <button type="submit"
+                        class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                        Importar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Daily Briefing Modal -->
+    <div id="briefing-modal"
+        class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden flex items-center justify-center z-50">
+        <div class="glass p-8 rounded-2xl shadow-2xl w-[600px] bg-white">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-3">
+                    <span class="text-4xl">📅</span>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Briefing do Dia</h2>
+                        <p class="text-sm text-gray-500" id="briefing-date"></p>
+                    </div>
+                </div>
+                <button onclick="app.closeBriefing()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+
+            <div id="briefing-content" class="space-y-3 max-h-[400px] overflow-y-auto">
+                <!-- Tasks will be inserted here -->
+            </div>
+
+            <div class="mt-6 flex justify-between items-center">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="dont-show-today" class="rounded text-indigo-600 focus:ring-indigo-500">
+                    <span class="text-sm text-gray-600">Não mostrar novamente hoje</span>
+                </label>
+                <button onclick="app.closeBriefing()"
+                    class="px-6 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition-colors">
+                    Entendi
+                </button>
+            </div>
         </div>
     </div>
 

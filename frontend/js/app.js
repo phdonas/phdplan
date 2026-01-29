@@ -18,6 +18,10 @@ const app = {
         document.getElementById('task-form').addEventListener('submit', app.handleTaskSubmit);
         document.getElementById('btn-delete-task').addEventListener('click', app.handleTaskDelete);
         document.getElementById('user-form').addEventListener('submit', app.handleUserSubmit);
+        document.getElementById('import-form').addEventListener('submit', app.handleImportSubmit);
+
+        // Show briefing after small delay to ensure DOM is ready
+        setTimeout(() => app.checkAndShowBriefing(), 1000);
     },
 
     checkAuth: () => {
@@ -1010,6 +1014,187 @@ const app = {
             console.error(e);
             alert("Erro de conexão.");
         }
+    },
+
+    // --- IMPORT FUNCTIONALITY ---
+    openImportModal: () => {
+        document.getElementById('import-file').value = '';
+        document.getElementById('import-status').classList.add('hidden');
+        document.getElementById('import-result').classList.add('hidden');
+        document.getElementById('import-modal').classList.remove('hidden');
+    },
+
+    closeImportModal: () => {
+        document.getElementById('import-modal').classList.add('hidden');
+    },
+
+    handleImportSubmit: async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('import-file');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert('Por favor, selecione um arquivo');
+            return;
+        }
+
+        const statusDiv = document.getElementById('import-status');
+        const resultDiv = document.getElementById('import-result');
+
+        statusDiv.classList.remove('hidden');
+        resultDiv.classList.add('hidden');
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch(`${API_URL}/import/excel`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${app.state.accessToken}`
+                },
+                body: formData
+            });
+
+            statusDiv.classList.add('hidden');
+
+            if (res.ok) {
+                const data = await res.json();
+                resultDiv.innerHTML = `
+                    <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <p class="font-semibold text-green-800">✅ Importação concluída!</p>
+                        <p class="text-sm text-green-700 mt-1">
+                            ${data.tasks_imported} tarefas e ${data.strategies_imported} estratégias importadas.
+                        </p>
+                    </div>
+                `;
+                resultDiv.classList.remove('hidden');
+
+                // Reload data after 2 seconds
+                setTimeout(() => {
+                    app.loadData();
+                    app.closeImportModal();
+                }, 2000);
+            } else {
+                const err = await res.json();
+                resultDiv.innerHTML = `
+                    <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p class="font-semibold text-red-800">❌ Erro na importação</p>
+                        <p class="text-sm text-red-700 mt-1">${err.detail || 'Erro desconhecido'}</p>
+                    </div>
+                `;
+                resultDiv.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error(error);
+            statusDiv.classList.add('hidden');
+            resultDiv.innerHTML = `
+                <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p class="font-semibold text-red-800">❌ Erro de conexão</p>
+                    <p class="text-sm text-red-700 mt-1">Não foi possível conectar ao servidor.</p>
+                </div>
+            `;
+            resultDiv.classList.remove('hidden');
+        }
+    },
+
+    // --- DAILY BRIEFING ---
+    checkAndShowBriefing: async () => {
+        if (!app.state.isAuthenticated) return;
+
+        // Check if user chose not to show today
+        const today = new Date().toISOString().split('T')[0];
+        const dontShowKey = `briefing_hide_${today}`;
+
+        if (localStorage.getItem(dontShowKey)) {
+            return; // User chose not to see it today
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/briefing/today`, {
+                headers: { 'Authorization': `Bearer ${app.state.accessToken}` }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+
+                // Only show if there are tasks
+                if (data.total_tasks > 0) {
+                    app.showBriefing(data);
+                }
+            }
+        } catch (e) {
+            console.error('Error loading briefing:', e);
+        }
+    },
+
+    showBriefing: (data) => {
+        const modal = document.getElementById('briefing-modal');
+        const dateEl = document.getElementById('briefing-date');
+        const contentEl = document.getElementById('briefing-content');
+
+        // Format date
+        const dateObj = new Date(data.date + 'T00:00:00');
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        dateEl.textContent = dateObj.toLocaleDateString('pt-BR', options);
+
+        // Build content
+        contentEl.innerHTML = '';
+
+        if (data.tasks.length === 0) {
+            contentEl.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhuma tarefa pendente para hoje! 🎉</p>';
+        } else {
+            data.tasks.forEach(task => {
+                const card = document.createElement('div');
+                card.className = 'p-4 rounded-lg border-l-4 hover:shadow-md transition-shadow cursor-pointer';
+
+                // Priority colors
+                if (task.prioridade === 'Alta') {
+                    card.classList.add('bg-red-50', 'border-red-500');
+                } else if (task.prioridade === 'Média') {
+                    card.classList.add('bg-yellow-50', 'border-yellow-500');
+                } else {
+                    card.classList.add('bg-blue-50', 'border-blue-500');
+                }
+
+                card.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-1">
+                                <span class="px-2 py-0.5 text-xs font-semibold rounded ${task.prioridade === 'Alta' ? 'bg-red-100 text-red-700' :
+                        task.prioridade === 'Média' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-blue-100 text-blue-700'
+                    }">${task.prioridade}</span>
+                                <span class="text-xs text-gray-500">${task.categoria}</span>
+                            </div>
+                            <p class="text-gray-800 font-medium">${task.descricao}</p>
+                            ${task.tema_macro ? `<p class="text-sm text-gray-600 mt-1">📌 ${task.tema_macro}</p>` : ''}
+                            ${task.duracao ? `<p class="text-xs text-gray-500 mt-1">⏱️ ${task.duracao}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+
+                card.onclick = () => {
+                    app.closeBriefing();
+                    app.setView('kanban');
+                    app.openTaskModal(task, 'task');
+                };
+
+                contentEl.appendChild(card);
+            });
+        }
+
+        modal.classList.remove('hidden');
+    },
+
+    closeBriefing: () => {
+        const checkbox = document.getElementById('dont-show-today');
+        if (checkbox.checked) {
+            const today = new Date().toISOString().split('T')[0];
+            localStorage.setItem(`briefing_hide_${today}`, 'true');
+        }
+        document.getElementById('briefing-modal').classList.add('hidden');
+        checkbox.checked = false; // Reset for next time
     }
 };
 

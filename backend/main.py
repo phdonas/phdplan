@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -9,6 +9,8 @@ from pydantic import BaseModel
 import pandas as pd
 import os
 from dotenv import load_dotenv
+import tempfile
+import shutil
 
 from fastapi.staticfiles import StaticFiles
 
@@ -467,3 +469,149 @@ def get_shares(db: Session = Depends(get_db), current_user: models.User = Depend
     # Who shared with me
     shared_with_me = db.query(models.PlanShare).filter(models.PlanShare.shared_with_email == current_user.email).all()
     return {"my_shares": my_shares, "shared_with_me": shared_with_me}
+
+# --- IMPORT ENDPOINT ---
+@app.post("/import/excel")
+async def import_excel(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """Import data from Excel file (Admin only)"""
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Only admins can import data")
+    
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Only Excel files (.xlsx, .xls) are allowed")
+    
+    # Save uploaded file temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
+        shutil.copyfileobj(file.file, tmp_file)
+        tmp_path = tmp_file.name
+    
+    try:
+        # Clear existing data for this user (optional - comment out to keep existing data)
+        # db.query(models.Atividade).filter(models.Atividade.user_id == current_user.id).delete()
+        # db.query(models.Estrategia).filter(models.Estrategia.user_id == current_user.id).delete()
+        # db.commit()
+        
+        tasks_imported = 0
+        strategies_imported = 0
+        
+        # Import Atividades (Tasks)
+        try:
+            df_atividades = pd.read_excel(tmp_path, sheet_name='Plano Diário')
+            df_atividades = df_atividades.drop_duplicates()
+            
+            for index, row in df_atividades.iterrows():
+                data_val = row.get('Data')
+                if pd.isna(data_val):
+                    continue
+                
+                data_date = pd.to_datetime(data_val).date()
+                
+                # Status normalization
+                status_raw = row.get('Status')
+                status = 'A fazer'
+                if str(status_raw).lower() in ['ok', 'feito', 'concluído', 'concluido']:
+                    status = 'Feito'
+                
+                # Get description
+                o_que = str(row.get('O que') if not pd.isna(row.get('O que')) else '')
+                descricao_original = str(row.get('Descrição da ação') if not pd.isna(row.get('Descrição da ação')) else '')
+                final_descricao = o_que if o_que.strip() else descricao_original
+                
+                atividade = models.Atividade(
+                    descricao=final_descricao,
+                    data=data_date,
+                    status=status,
+                    prioridade=str(row.get('Prioridade', 'Média')),
+                    categoria=str(row.get('Categoria', 'Geral')),
+                    o_que=o_que,
+                    como=str(row.get('Como', '')),
+                    onde=str(row.get('Onde', '')),
+                    cta=str(row.get('CTA', '')),
+                    duracao=str(row.get('Duração (min)', '')),
+                    kpi_meta=str(row.get('KPI/Meta', '')),
+                    tipo_dia=str(row.get('Tipo de dia', '')),
+                    dia_semana=str(row.get('Dia da semana', '')),
+                    tema_macro=str(row.get('Tema macro', '')),
+                    angulo=str(row.get('Ângulo/Trilha', '')),
+                    canal_area=str(row.get('Canal/Área', '')),
+                    user_id=current_user.id
+                )
+                db.add(atividade)
+                tasks_imported += 1
+        except Exception as e:
+            print(f"Error importing tasks: {e}")
+        
+        # Import Estratégia (Weekly Strategies)
+        try:
+            df_estrategia = pd.read_excel(tmp_path, sheet_name='Temas Semanais')
+            
+            for index, row in df_estrategia.iterrows():
+                semana_inicio_val = row.get('Semana (início)')
+                if pd.isna(semana_inicio_val):
+                    continue
+                
+                semana_inicio = pd.to_datetime(semana_inicio_val)
+                tema = str(row.get('Tema macro', ''))
+                
+                angles = [
+                    f"Financeiro: {row.get('Ângulo Financeiro', '')}",
+                    f"Negociação: {row.get('Ângulo Negociação/Vendas', '')}",
+                    f"Gestão: {row.get('Ângulo Gestão Comercial', '')}"
+                ]
+                descricao_detalhada = " | ".join([a for a in angles if 'nan' not in a.lower()])
+                
+                estrategia = models.Estrategia(
+                    tema=tema,
+                    semana_inicio=semana_inicio.date(),
+                    semana_fim=(semana_inicio + timedelta(days=6)).date(),
+                    descricao_detalhada=descricao_detalhada,
+                    user_id=current_user.id
+                )
+                db.add(estrategia)
+                strategies_imported += 1
+        except Exception as e:
+            print(f"Error importing strategies: {e}")
+        
+        db.commit()
+        
+        return {
+            "message": "Import successful",
+            "tasks_imported": tasks_imported,
+            "strategies_imported": strategies_imported
+        }
+    
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+    finally:
+        # Clean up temporary file
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
+
+@app.get("/briefing/today")
+def get_today_briefing(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    """Get today's tasks for briefing popup"""
+    today = date.today()
+    
+    tasks = db.query(models.Atividade).filter(
+        models.Atividade.user_id == current_user.id,
+        models.Atividade.data == today,
+        models.Atividade.status != 'Feito'
+    ).all()
+    
+    # Sort by priority: Alta > Média > Baixa
+    priority_order = {'Alta': 0, 'Média': 1, 'Baixa': 2}
+    tasks_sorted = sorted(tasks, key=lambda x: priority_order.get(x.prioridade, 3))
+    
+    return {
+        "date": today,
+        "total_tasks": len(tasks_sorted),
+        "tasks": tasks_sorted
+    }
+
