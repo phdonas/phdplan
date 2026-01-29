@@ -615,3 +615,20 @@ def get_today_briefing(db: Session = Depends(get_db), current_user: models.User 
         "tasks": tasks_sorted
     }
 
+# --- TEMPORARY SETUP ENDPOINT ---
+@app.get("/setup/make-admin/{email}")
+def setup_make_admin(email: str, code: str, db: Session = Depends(get_db)):
+    """Temporary endpoint to fix admin access"""
+    # Simple security check to prevent accidental usage
+    if code != "phdplan2026":
+        raise HTTPException(status_code=403, detail="Invalid code")
+        
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User {email} not found. Please register first.")
+    
+    user.role = "admin"
+    db.commit()
+    
+    return {"message": f"SUCCESS! User {email} is now an ADMIN. Please logout and login again."}
+
