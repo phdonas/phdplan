@@ -20,6 +20,12 @@ const app = {
         document.getElementById('user-form').addEventListener('submit', app.handleUserSubmit);
         document.getElementById('import-form').addEventListener('submit', app.handleImportSubmit);
 
+        // Auto-fill day of week
+        const dateInput = document.getElementById('task-date');
+        if (dateInput) {
+            dateInput.addEventListener('change', (e) => app.updateDayOfWeek(e.target.value));
+        }
+
         // Show briefing after small delay to ensure DOM is ready
         setTimeout(() => app.checkAndShowBriefing(), 1000);
     },
@@ -29,6 +35,19 @@ const app = {
         if (token) {
             app.state.isAuthenticated = true;
             app.state.accessToken = token;
+
+            // Set default date to today (Local Time)
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const today = `${year}-${month}-${day}`;
+
+            const dateInput = document.getElementById('filter-date');
+            if (dateInput) {
+                dateInput.value = today;
+            }
+
             app.showDashboard();
             app.loadData();
         } else {
@@ -523,17 +542,21 @@ const app = {
 
         // Update Backend
         try {
-            await fetch(`${API_URL}/tasks/${taskId}`, {
+            // Only send status to avoid issues with other fields
+            const res = await fetch(`${API_URL}/tasks/${taskId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    descricao: task.descricao, // Must send required fields or full obj depending on API. 
-                    // Our API implementation iterates provided keys.
-                    // BUT models.py says status is required in creation, optional in update if Pydantic model allows it.
-                    // The Pydantic model TaskCreate has defaults.
-                    status: newStatus
-                })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${app.state.accessToken}`
+                },
+                body: JSON.stringify({ status: newStatus })
             });
+            if (!res.ok) {
+                const errText = await res.text();
+                console.error("Failed to update status", errText);
+                alert("Falha ao salvar status no servidor: " + errText);
+                app.loadData(); // Revert
+            }
         } catch (e) {
             console.error("Drop error", e);
             alert("Erro ao atualizar status.");
@@ -642,6 +665,7 @@ const app = {
         // Setup defaults
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('task-date').value = today;
+        app.updateDayOfWeek(today); // Trigger auto-fill default
         document.getElementById('task-priority').value = 'Baixa'; // Default requested
         document.getElementById('task-status').value = 'A fazer'; // Default requested
 
@@ -753,9 +777,13 @@ const app = {
                 // Fields
                 document.getElementById('task-desc').value = item.descricao; // 'O que'
                 document.getElementById('task-date').value = item.data || '';
+                app.updateDayOfWeek(item.data); // Update on edit logic
                 document.getElementById('task-priority').value = item.prioridade;
                 document.getElementById('task-category').value = item.categoria;
-                document.getElementById('task-status').value = item.status;
+                let safeStatus = item.status;
+                if (safeStatus === 'Concluído') safeStatus = 'Feito';
+                if (safeStatus === 'Pendente') safeStatus = 'A fazer';
+                document.getElementById('task-status').value = safeStatus;
 
                 document.getElementById('task-como').value = item.como || '';
                 document.getElementById('task-onde').value = item.onde || '';
@@ -1195,6 +1223,16 @@ const app = {
         }
         document.getElementById('briefing-modal').classList.add('hidden');
         checkbox.checked = false; // Reset for next time
+    },
+
+    updateDayOfWeek: (dateStr) => {
+        if (!dateStr) return;
+        const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+        // Append T12:00:00 to avoid timezone offset shifts when parsing YYYY-MM-DD
+        const date = new Date(dateStr + 'T12:00:00');
+        const dayName = days[date.getDay()];
+        const field = document.getElementById('task-dia-semana');
+        if (field) field.value = dayName;
     }
 };
 

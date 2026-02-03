@@ -218,6 +218,26 @@ class TaskCreate(BaseModel):
     canal_area: Optional[str] = ""
     o_que: Optional[str] = ""
 
+class TaskUpdate(BaseModel):
+    descricao: Optional[str] = None
+    data: Optional[date] = None
+    status: Optional[str] = None
+    prioridade: Optional[str] = None
+    categoria: Optional[str] = None
+    # New Fields
+    como: Optional[str] = None
+    onde: Optional[str] = None
+    cta: Optional[str] = None
+    duracao: Optional[str] = None
+    kpi_meta: Optional[str] = None
+    tipo_dia: Optional[str] = None 
+    dia_semana: Optional[str] = None
+    tema_macro: Optional[str] = None
+    angulo: Optional[str] = None
+    canal_area: Optional[str] = None
+    o_que: Optional[str] = None
+    descricao_original: Optional[str] = None
+
 @app.post("/tasks")
 def create_task(task: TaskCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     task_data = task.dict()
@@ -228,7 +248,7 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db), current_user: m
     return db_task
 
 @app.put("/tasks/{task_id}")
-def update_task(task_id: int, task: TaskCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+def update_task(task_id: int, task: TaskUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     query = db.query(models.Atividade).filter(models.Atividade.id == task_id)
     db_task = query.first()
     if not db_task:
@@ -237,7 +257,7 @@ def update_task(task_id: int, task: TaskCreate, db: Session = Depends(get_db), c
     if current_user.role != 'admin' and db_task.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    for key, value in task.dict().items():
+    for key, value in task.dict(exclude_unset=True).items():
         setattr(db_task, key, value)
     
     db.commit()
@@ -490,10 +510,10 @@ async def import_excel(
         tmp_path = tmp_file.name
     
     try:
-        # Clear existing data for this user (optional - comment out to keep existing data)
-        # db.query(models.Atividade).filter(models.Atividade.user_id == current_user.id).delete()
-        # db.query(models.Estrategia).filter(models.Estrategia.user_id == current_user.id).delete()
-        # db.commit()
+        # Clear existing data for this user to avoid duplicates
+        db.query(models.Atividade).filter(models.Atividade.user_id == current_user.id).delete()
+        db.query(models.Estrategia).filter(models.Estrategia.user_id == current_user.id).delete()
+        db.commit()
         
         tasks_imported = 0
         strategies_imported = 0
