@@ -93,7 +93,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/app", StaticFiles(directory="../frontend", html=True), name="frontend")
+# Determine static files path (local vs production)
+static_dir = "../frontend"
+if os.path.exists("frontend"):
+    static_dir = "frontend"
+
+app.mount("/app", StaticFiles(directory=static_dir, html=True), name="frontend")
 
 
 # Dependency
