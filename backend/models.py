@@ -15,6 +15,8 @@ class User(Base):
     estrategias = relationship("Estrategia", back_populates="owner")
     insights = relationship("Insight", back_populates="owner")
     shares = relationship("PlanShare", back_populates="owner", foreign_keys="PlanShare.owner_id")
+    categorias = relationship("Categoria", back_populates="owner")
+    acoes = relationship("Acao", back_populates="owner")
 
 class PlanShare(Base):
     __tablename__ = "plan_shares"
@@ -25,6 +27,25 @@ class PlanShare(Base):
     permission = Column(String, default="read") # read, edit
 
     owner = relationship("User", back_populates="shares", foreign_keys=[owner_id])
+
+class Categoria(Base):
+    __tablename__ = "categorias_v2"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    nome = Column(String, index=True)
+    
+    owner = relationship("User", back_populates="categorias")
+    acoes = relationship("Acao", back_populates="categoria", cascade="all, delete-orphan")
+
+class Acao(Base):
+    __tablename__ = "acoes_v2"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    categoria_id = Column(Integer, ForeignKey("categorias_v2.id"))
+    nome = Column(String, index=True)
+
+    owner = relationship("User", back_populates="acoes")
+    categoria = relationship("Categoria", back_populates="acoes")
 
 class Atividade(Base):
     __tablename__ = "atividades"
@@ -38,6 +59,7 @@ class Atividade(Base):
     status = Column(String, default="A fazer") # A fazer, Fazendo, Feito
     prioridade = Column(String) # Alta, Média, Baixa
     categoria = Column(String)
+    acao = Column(String) # For simple storage/compatibility
     
     # Enhanced Fields from spreadsheet
     o_que = Column(String) # Will store 'O que' specifically

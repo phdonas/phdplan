@@ -63,7 +63,7 @@
         <header class="glass h-16 flex items-center justify-between px-6 shadow-sm z-10">
             <div class="flex items-center space-x-4">
                 <span class="text-xl font-bold text-indigo-900">PHDPlan <span
-                        class="text-xs text-gray-400 font-normal">v1.0.1</span></span>
+                        class="text-xs text-gray-400 font-normal">v1.1.0</span></span>
                 <nav class="space-x-4 ml-8">
                     <button
                         class="text-gray-600 hover:text-indigo-600 font-medium px-3 py-1 rounded-md transition-colors"
@@ -76,7 +76,7 @@
                         onclick="app.setView('insights')">Insights</button>
                     <button
                         class="text-gray-600 hover:text-indigo-600 font-medium px-3 py-1 rounded-md transition-colors"
-                        onclick="app.setView('strategy')">Estratégia</button>
+                        onclick="app.setView('categories')">Categorias/Ações</button>
                     <button
                         class="text-gray-600 hover:text-indigo-600 font-medium px-3 py-1 rounded-md transition-colors"
                         onclick="app.setView('table')">Tabela</button>
@@ -207,11 +207,69 @@
                 </div>
             </div>
 
-            <!-- Strategy Mode. -->
-            <div id="strategy-view" class="hidden h-full">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">Estratégia Semanal</h2>
-                <div class="space-y-4" id="strategy-list">
-                    <!-- Cards -->
+            <!-- Categories/Actions Mode. -->
+            <div id="categories-view" class="hidden h-full">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Gerenciar Categorias/Ações</h2>
+                    <button onclick="app.openCategoryModal()"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition-colors">
+                        + Nova Categoria
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8" id="categories-container">
+                    <!-- Categories and their Actions will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Category Modal -->
+            <div id="category-modal"
+                class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                    <div class="bg-indigo-900 px-6 py-4 flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-white">Nova Categoria</h3>
+                        <button onclick="app.toggleCategoryModal(false)"
+                            class="text-indigo-200 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    <form onsubmit="app.handleCategorySubmit(event)" class="p-6 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Nome da Categoria</label>
+                            <input type="text" id="cat-name" required
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                        </div>
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" onclick="app.toggleCategoryModal(false)"
+                                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancelar</button>
+                            <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">Salvar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Action Modal -->
+            <div id="action-modal"
+                class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                    <div class="bg-indigo-900 px-6 py-4 flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-white">Nova Ação</h3>
+                        <button onclick="app.toggleActionModal(false)"
+                            class="text-indigo-200 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    <form onsubmit="app.handleActionSubmit(event)" class="p-6 space-y-4">
+                        <input type="hidden" id="action-cat-id">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Nome da Ação</label>
+                            <input type="text" id="action-name" required
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                        </div>
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" onclick="app.toggleActionModal(false)"
+                                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancelar</button>
+                            <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">Salvar</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -413,18 +471,27 @@
                             </div>
 
                             <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Categoria</label>
+                                <select id="task-category" onchange="app.handleCategoryChange()"
+                                    class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
+                                    <option value="">Selecione...</option>
+                                    <!-- Options populated dynamic -->
+                                </select>
+                            </div>
+
+                            <div class="hidden">
                                 <label class="block text-xs font-medium text-gray-500 mb-1">Tipo Dia</label>
                                 <input type="text" id="task-tipo-dia"
                                     class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
                             </div>
 
-                            <div>
+                            <div class="hidden">
                                 <label class="block text-xs font-medium text-gray-500 mb-1">Ângulo</label>
                                 <input type="text" id="task-angulo"
                                     class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
                             </div>
 
-                            <div>
+                            <div class="hidden">
                                 <label class="block text-xs font-medium text-gray-500 mb-1">Canal</label>
                                 <input type="text" id="task-canal"
                                     class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
@@ -463,15 +530,9 @@
                                 </div>
                             </div>
 
-                            <div>
-                                <label class="block text-xs font-medium text-gray-500 mb-1">Categoria</label>
-                                <select id="task-category"
-                                    class="w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border">
-                                    <option value="Geral">Geral</option>
-                                    <option value="Conteúdo">Conteúdo</option>
-                                    <option value="Gestão">Gestão</option>
-                                    <option value="Financeiro">Financeiro</option>
-                                </select>
+                            <div class="hidden">
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Categoria (Legacy)</label>
+                                <input type="text" id="task-category-legacy">
                             </div>
 
                             <!-- Hidden Fields kept for logic -->
@@ -565,6 +626,14 @@
                                 <textarea id="task-tema-macro" rows="4"
                                     class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-3 border resize-y bg-gray-50 focus:bg-white transition-colors"
                                     placeholder="Digite o tema macro..."></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Ação Prevista</label>
+                                <select id="task-acao"
+                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-3 border bg-gray-50 focus:bg-white transition-colors">
+                                    <option value="">Selecione a ação...</option>
+                                </select>
                             </div>
 
                             <div>

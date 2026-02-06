@@ -31,7 +31,8 @@ def apply_migrations():
             "recorrencia_dia_mes": "INTEGER",
             "recorrencia_dias_semana": "VARCHAR",
             "recorrencia_inicio": "DATE",
-            "recorrencia_fim": "DATE"
+            "recorrencia_fim": "DATE",
+            "acao": "VARCHAR"
         }
         
         for col, col_type in columns_to_add.items():
@@ -276,6 +277,7 @@ class TaskCreate(BaseModel):
     angulo: Optional[str] = ""
     canal_area: Optional[str] = ""
     o_que: Optional[str] = ""
+    acao: Optional[str] = ""
     # Recurrence
     recorrencia_tipo: Optional[str] = None
     recorrencia_intervalo: Optional[int] = None
@@ -302,6 +304,7 @@ class TaskUpdate(BaseModel):
     angulo: Optional[str] = None
     canal_area: Optional[str] = None
     o_que: Optional[str] = None
+    acao: Optional[str] = None
     descricao_original: Optional[str] = None
     # Recurrence
     recorrencia_tipo: Optional[str] = None
@@ -484,6 +487,65 @@ class InsightUpdate(BaseModel):
     angulo: Optional[str] = None
     canal_area: Optional[str] = None
     prioridade: Optional[str] = None
+
+# --- CATEGORY \u0026 ACTION ENDPOINTS ---
+class AcaoBase(BaseModel):
+    nome: str
+    categoria_id: int
+
+class AcaoCreate(AcaoBase):
+    pass
+
+class CategoriaBase(BaseModel):
+    nome: str
+
+class CategoriaCreate(CategoriaBase):
+    pass
+
+@app.get("/categories")
+def read_categories(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    return db.query(models.Categoria).filter(models.Categoria.user_id == current_user.id).all()
+
+@app.post("/categories")
+def create_category(cat: CategoriaCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    db_cat = models.Categoria(nome=cat.nome, user_id=current_user.id)
+    db.add(db_cat)
+    db.commit()
+    db.refresh(db_cat)
+    return db_cat
+
+@app.delete("/categories/{cat_id}")
+def delete_category(cat_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    db_cat = db.query(models.Categoria).filter(models.Categoria.id == cat_id, models.Categoria.user_id == current_user.id).first()
+    if not db_cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+    db.delete(db_cat)
+    db.commit()
+    return {"message": "Category deleted"}
+
+@app.get("/actions")
+def read_actions(cat_id: Optional[int] = None, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    query = db.query(models.Acao).filter(models.Acao.user_id == current_user.id)
+    if cat_id:
+        query = query.filter(models.Acao.categoria_id == cat_id)
+    return query.all()
+
+@app.post("/actions")
+def create_action(acao: AcaoCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    db_acao = models.Acao(nome=acao.nome, categoria_id=acao.categoria_id, user_id=current_user.id)
+    db.add(db_acao)
+    db.commit()
+    db.refresh(db_acao)
+    return db_acao
+
+@app.delete("/actions/{acao_id}")
+def delete_action(acao_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    db_acao = db.query(models.Acao).filter(models.Acao.id == acao_id, models.Acao.user_id == current_user.id).first()
+    if not db_acao:
+        raise HTTPException(status_code=404, detail="Action not found")
+    db.delete(db_acao)
+    db.commit()
+    return {"message": "Action deleted"}
 
 @app.put("/insights/{insight_id}")
 def update_insight(insight_id: int, insight: InsightUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):

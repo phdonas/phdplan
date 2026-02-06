@@ -9,7 +9,9 @@ const app = {
         view: 'kanban',
         draggedTaskId: null,
         isRegisterMode: false,
-        accessToken: null
+        accessToken: null,
+        categories: [],
+        actions: []
     },
 
     init: () => {
@@ -149,7 +151,7 @@ const app = {
 
     setView: (viewName) => {
         app.state.view = viewName;
-        ['kanban', 'calendar', 'insights', 'strategy', 'table'].forEach(v => {
+        ['kanban', 'calendar', 'insights', 'strategy', 'table', 'admin', 'categories'].forEach(v => {
             const el = document.getElementById(`${v}-view`);
             if (el) el.classList.add('hidden');
         });
@@ -166,6 +168,8 @@ const app = {
             app.renderInsights();
         } else if (viewName === 'admin') {
             app.renderAdmin();
+        } else if (viewName === 'categories') {
+            app.renderCategories();
         }
     },
 
@@ -174,25 +178,31 @@ const app = {
 
         try {
             const headers = { 'Authorization': `Bearer ${app.state.accessToken}` };
-            const [usersRes, strategiesRes, insightsRes] = await Promise.all([
+            const [tasksRes, strategiesRes, insightsRes, categoriesRes, actionsRes] = await Promise.all([
                 fetch(`${API_URL}/tasks`, { headers }),
                 fetch(`${API_URL}/strategies`, { headers }),
-                fetch(`${API_URL}/insights`, { headers })
+                fetch(`${API_URL}/insights`, { headers }),
+                fetch(`${API_URL}/categories`, { headers }),
+                fetch(`${API_URL}/actions`, { headers })
             ]);
 
-            if (!usersRes.ok || !strategiesRes.ok || !insightsRes.ok) {
-                if (usersRes.status === 401) {
+            if (!tasksRes.ok || !strategiesRes.ok || !insightsRes.ok || !categoriesRes.ok || !actionsRes.ok) {
+                if (tasksRes.status === 401) {
                     app.logout();
                     return;
                 }
                 throw new Error("Falha na resposta da API");
             }
 
-            app.state.tasks = await usersRes.json();
+            app.state.tasks = await tasksRes.json();
             app.state.strategies = await strategiesRes.json();
             app.state.insights = await insightsRes.json();
+            app.state.categories = await categoriesRes.json();
+            app.state.actions = await actionsRes.json();
 
             if (!Array.isArray(app.state.tasks)) app.state.tasks = [];
+            if (!Array.isArray(app.state.categories)) app.state.categories = [];
+            if (!Array.isArray(app.state.actions)) app.state.actions = [];
 
             // Normalize task status
             app.state.tasks.forEach(t => {
@@ -202,9 +212,9 @@ const app = {
 
             app.populateWeeks();
             if (app.state.view === 'table') app.renderTable();
+            else if (app.state.view === 'categories') app.renderCategories();
             else app.renderTasks();
 
-            app.renderStrategy();
             app.renderInsights();
 
             // Admin check
@@ -623,10 +633,22 @@ const app = {
         app.toggleRecursFields();
 
         const today = new Date().toISOString().split('T')[0];
-        const dateField = document.getElementById('task-date');
-        if (dateField) {
-            dateField.value = today;
+        const dateInputField = document.getElementById('task-date');
+        if (dateInputField) {
+            dateInputField.value = today;
             app.updateDayOfWeek(today);
+        }
+
+        // Populate Categories
+        const catSelect = document.getElementById('task-category');
+        if (catSelect) {
+            catSelect.innerHTML = '<option value="">Selecione...</option>';
+            app.state.categories.sort((a, b) => a.nome.localeCompare(b.nome)).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.nome;
+                opt.innerText = c.nome;
+                catSelect.appendChild(opt);
+            });
         }
 
         const oldBtn = document.getElementById('btn-transform-task');
@@ -637,7 +659,7 @@ const app = {
             if (item) {
                 document.getElementById('task-id').value = item.id;
                 document.getElementById('task-desc').value = item.descricao;
-                document.getElementById('task-category').value = item.categoria;
+                document.getElementById('task-category').value = item.categoria || '';
                 document.getElementById('task-date').value = item.data_prevista || today;
                 document.getElementById('task-status').value = item.status || 'A fazer';
                 document.getElementById('task-priority').value = item.prioridade || 'Média';
@@ -653,8 +675,8 @@ const app = {
                 document.getElementById('task-angulo').value = item.angulo || '';
                 document.getElementById('task-canal').value = item.canal_area || '';
 
-                deleteBtn.classList.remove('hidden');
-                duplicateBtn.classList.add('hidden');
+                if (deleteBtn) deleteBtn.classList.remove('hidden');
+                if (duplicateBtn) duplicateBtn.classList.add('hidden');
 
                 const transBtn = document.createElement('button');
                 transBtn.id = "btn-transform-task";
@@ -662,11 +684,11 @@ const app = {
                 transBtn.className = "text-indigo-600 hover:text-indigo-800 text-sm font-medium ml-4";
                 transBtn.innerText = "✨ Transformar em Tarefa";
                 transBtn.onclick = () => app.transformInsightToTask(item.id);
-                deleteBtn.insertAdjacentElement('afterend', transBtn);
+                if (deleteBtn) deleteBtn.insertAdjacentElement('afterend', transBtn);
             } else {
                 document.getElementById('task-id').value = '';
-                deleteBtn.classList.add('hidden');
-                duplicateBtn.classList.add('hidden');
+                if (deleteBtn) deleteBtn.classList.add('hidden');
+                if (duplicateBtn) duplicateBtn.classList.add('hidden');
             }
         } else {
             title.innerText = item ? 'Editar Tarefa' : 'Nova Tarefa';
@@ -676,7 +698,9 @@ const app = {
                 document.getElementById('task-date').value = item.data || '';
                 app.updateDayOfWeek(item.data);
                 document.getElementById('task-priority').value = item.prioridade;
-                document.getElementById('task-category').value = item.categoria;
+                document.getElementById('task-category').value = item.categoria || '';
+                app.handleCategoryChange(); // Populate actions
+                document.getElementById('task-acao').value = item.acao || '';
                 document.getElementById('task-status').value = (item.status === 'Concluído' ? 'Feito' : (item.status === 'Pendente' ? 'A fazer' : item.status));
 
                 document.getElementById('task-como').value = item.como || '';
@@ -690,12 +714,12 @@ const app = {
                 document.getElementById('task-angulo').value = item.angulo || '';
                 document.getElementById('task-canal').value = item.canal_area || '';
 
-                deleteBtn.classList.remove('hidden');
-                duplicateBtn.classList.remove('hidden');
+                if (deleteBtn) deleteBtn.classList.remove('hidden');
+                if (duplicateBtn) duplicateBtn.classList.remove('hidden');
             } else {
                 document.getElementById('task-id').value = '';
-                deleteBtn.classList.add('hidden');
-                duplicateBtn.classList.add('hidden');
+                if (deleteBtn) deleteBtn.classList.add('hidden');
+                if (duplicateBtn) duplicateBtn.classList.add('hidden');
             }
         }
     },
@@ -745,6 +769,7 @@ const app = {
         const dataPayload = {
             descricao: document.getElementById('task-desc').value,
             categoria: document.getElementById('task-category').value,
+            acao: document.getElementById('task-acao').value,
             como: document.getElementById('task-como').value,
             onde: document.getElementById('task-onde').value,
             cta: document.getElementById('task-cta').value,
@@ -967,6 +992,130 @@ const app = {
         if (checkbox && checkbox.checked) localStorage.setItem(`briefing_hide_${new Date().toISOString().split('T')[0]}`, 'true');
         const modal = document.getElementById('briefing-modal');
         if (modal) modal.classList.add('hidden');
+    },
+
+    renderCategories: () => {
+        const container = document.getElementById('categories-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        app.state.categories.forEach(cat => {
+            const catActions = app.state.actions.filter(a => a.categoria_id === cat.id);
+            const card = document.createElement('div');
+            card.className = "bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col h-full";
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">${cat.nome}</h3>
+                    <div class="flex space-x-2">
+                        <button onclick="app.openActionModal(${cat.id})" class="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100">+ Ação</button>
+                        <button onclick="app.handleCategoryDelete(${cat.id})" class="text-xs text-red-500 hover:text-red-700">Excluir</button>
+                    </div>
+                </div>
+                <div class="flex-1 space-y-2 max-h-[300px] overflow-y-auto pr-2" id="actions-list-${cat.id}">
+                    ${catActions.map(a => `
+                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded group">
+                            <span class="text-sm text-gray-600">${a.nome}</span>
+                            <button onclick="app.handleActionDelete(${a.id})" class="text-xs text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">Remover</button>
+                        </div>
+                    `).join('')}
+                    ${catActions.length === 0 ? '<p class="text-xs text-gray-400 italic">Nenhuma ação cadastrada</p>' : ''}
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    },
+
+    openCategoryModal: () => {
+        document.getElementById('cat-name').value = '';
+        app.toggleCategoryModal(true);
+    },
+
+    toggleCategoryModal: (show) => {
+        const modal = document.getElementById('category-modal');
+        if (modal) modal.classList.toggle('hidden', !show);
+    },
+
+    handleCategorySubmit: async (e) => {
+        e.preventDefault();
+        const nome = document.getElementById('cat-name').value;
+        try {
+            const res = await fetch(`${API_URL}/categories`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${app.state.accessToken}` },
+                body: JSON.stringify({ nome })
+            });
+            if (res.ok) {
+                app.toggleCategoryModal(false);
+                app.loadData();
+            }
+        } catch (error) { console.error(error); }
+    },
+
+    handleCategoryDelete: async (id) => {
+        if (!confirm('Excluir esta categoria e todas as suas ações?')) return;
+        try {
+            const res = await fetch(`${API_URL}/categories/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${app.state.accessToken}` }
+            });
+            if (res.ok) app.loadData();
+        } catch (error) { console.error(error); }
+    },
+
+    openActionModal: (catId) => {
+        document.getElementById('action-cat-id').value = catId;
+        document.getElementById('action-name').value = '';
+        app.toggleActionModal(true);
+    },
+
+    toggleActionModal: (show) => {
+        const modal = document.getElementById('action-modal');
+        if (modal) modal.classList.toggle('hidden', !show);
+    },
+
+    handleActionSubmit: async (e) => {
+        e.preventDefault();
+        const nome = document.getElementById('action-name').value;
+        const categoria_id = parseInt(document.getElementById('action-cat-id').value);
+        try {
+            const res = await fetch(`${API_URL}/actions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${app.state.accessToken}` },
+                body: JSON.stringify({ nome, categoria_id })
+            });
+            if (res.ok) {
+                app.toggleActionModal(false);
+                app.loadData();
+            }
+        } catch (error) { console.error(error); }
+    },
+
+    handleActionDelete: async (id) => {
+        if (!confirm('Excluir esta ação?')) return;
+        try {
+            const res = await fetch(`${API_URL}/actions/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${app.state.accessToken}` }
+            });
+            if (res.ok) app.loadData();
+        } catch (error) { console.error(error); }
+    },
+
+    handleCategoryChange: () => {
+        const catName = document.getElementById('task-category').value;
+        const acaoSelect = document.getElementById('task-acao');
+        acaoSelect.innerHTML = '<option value="">Selecione a ação...</option>';
+
+        const cat = app.state.categories.find(c => c.nome === catName);
+        if (cat) {
+            const actions = app.state.actions.filter(a => a.categoria_id === cat.id);
+            actions.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.nome;
+                opt.innerText = a.nome;
+                acaoSelect.appendChild(opt);
+            });
+        }
     },
 
     updateDayOfWeek: (dateStr) => {
