@@ -55,6 +55,14 @@ class Atividade(Base):
     # Store original 'Descrição da ação' just in case
     descricao_original = Column(String)
 
+    # Recurrence Fields
+    recorrencia_tipo = Column(String) # None, 'n_dias', 'dia_mes', 'dia_semana'
+    recorrencia_intervalo = Column(Integer)
+    recorrencia_dia_mes = Column(Integer)
+    recorrencia_dias_semana = Column(String) # e.g., '0,2,4' for Mon,Wed,Fri
+    recorrencia_inicio = Column(Date)
+    recorrencia_fim = Column(Date)
+
 class Estrategia(Base):
     __tablename__ = "estrategia"
 

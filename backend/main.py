@@ -217,6 +217,13 @@ class TaskCreate(BaseModel):
     angulo: Optional[str] = ""
     canal_area: Optional[str] = ""
     o_que: Optional[str] = ""
+    # Recurrence
+    recorrencia_tipo: Optional[str] = None
+    recorrencia_intervalo: Optional[int] = None
+    recorrencia_dia_mes: Optional[int] = None
+    recorrencia_dias_semana: Optional[str] = None
+    recorrencia_inicio: Optional[date] = None
+    recorrencia_fim: Optional[date] = None
 
 class TaskUpdate(BaseModel):
     descricao: Optional[str] = None
@@ -237,15 +244,89 @@ class TaskUpdate(BaseModel):
     canal_area: Optional[str] = None
     o_que: Optional[str] = None
     descricao_original: Optional[str] = None
+    # Recurrence
+    recorrencia_tipo: Optional[str] = None
+    recorrencia_intervalo: Optional[int] = None
+    recorrencia_dia_mes: Optional[int] = None
+    recorrencia_dias_semana: Optional[str] = None
+    recorrencia_inicio: Optional[date] = None
+    recorrencia_fim: Optional[date] = None
 
 @app.post("/tasks")
 def create_task(task: TaskCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     task_data = task.dict()
+    
+    # Handle Recurrence logic
+    if task.recorrencia_tipo and task.recorrencia_inicio and task.recorrencia_fim:
+        start_date = task.recorrencia_inicio
+        end_date = task.recorrencia_fim
+        current_date = start_date
+        
+        tasks_to_create = []
+        
+        while current_date <= end_date:
+            should_create = False
+            
+            if task.recorrencia_tipo == 'n_dias' and task.recorrencia_intervalo:
+                # This logic is slightly complex for "every n days" starting from start_date
+                delta = (current_date - start_date).days
+                if delta % task.recorrencia_intervalo == 0:
+                    should_create = True
+            
+            elif task.recorrencia_tipo == 'dia_mes' and task.recorrencia_dia_mes:
+                if current_date.day == task.recorrencia_dia_mes:
+                    should_create = True
+                    
+            elif task.recorrencia_tipo == 'dia_semana' and task.recorrencia_dias_semana:
+                # 0=Monday, etc.
+                allowed_days = [int(d) for d in task.recorrencia_dias_semana.split(',') if d.strip()]
+                if current_date.weekday() in allowed_days:
+                    should_create = True
+            
+            if should_create:
+                # Create a task instance for this date
+                instance_data = task_data.copy()
+                instance_data['data'] = current_date
+                # Remove recurrence metadata or keep it? Let's keep it for reference but maybe not needed for generated instances
+                # Actually, better to keep it so we know they are part of a series.
+                tasks_to_create.append(models.Atividade(**instance_data, user_id=current_user.id))
+            
+            current_date += timedelta(days=1)
+            
+        if tasks_to_create:
+            db.add_all(tasks_to_create)
+            db.commit()
+            return {"message": f"{len(tasks_to_create)} recurrent tasks created"}
+        else:
+            raise HTTPException(status_code=400, detail="No tasks match the recurrence criteria in the given date range.")
+
     db_task = models.Atividade(**task_data, user_id=current_user.id)
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
     return db_task
+
+@app.post("/tasks/{task_id}/duplicate")
+def duplicate_task(task_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    db_task = db.query(models.Atividade).filter(models.Atividade.id == task_id).first()
+    if not db_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if current_user.role != 'admin' and db_task.user_id != current_user.id:
+         raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Create copy
+    # Exclude id and user_id to let them be set automatically or manually
+    task_data = {c.name: getattr(db_task, c.name) for c in db_task.__table__.columns if c.name not in ['id', 'user_id']}
+    
+    # Reset status to 'A fazer' for the duplicate
+    task_data['status'] = 'A fazer'
+    
+    new_task = models.Atividade(**task_data, user_id=current_user.id)
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
+    return new_task
 
 @app.put("/tasks/{task_id}")
 def update_task(task_id: int, task: TaskUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
