@@ -201,7 +201,9 @@ const app = {
             });
 
             app.populateWeeks();
-            app.renderTasks();
+            if (app.state.view === 'table') app.renderTable();
+            else app.renderTasks();
+
             app.renderStrategy();
             app.renderInsights();
 
@@ -219,7 +221,7 @@ const app = {
 
         } catch (error) {
             console.error(error);
-            alert("Erro ao carregar dados.");
+            alert("Erro ao carregar dados. Verifique a conexão ou aguarde o servidor 'acordar' (pode levar 1 minuto no Render).");
         }
     },
 
@@ -757,34 +759,51 @@ const app = {
             status: document.getElementById('task-status').value
         };
 
-        if (mode === 'insight') {
-            dataPayload.data_prevista = document.getElementById('task-date').value || null;
-            const res = await fetch(id ? `${API_URL}/insights/${id}` : `${API_URL}/insights`, {
-                method: id ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${app.state.accessToken}` },
-                body: JSON.stringify(dataPayload)
-            });
-            if (res.ok) { app.closeTaskModal(); app.loadData(); }
-        } else {
-            dataPayload.data = document.getElementById('task-date').value || null;
-            const recursType = document.getElementById('task-recurs-type').value;
-            if (recursType && !id) {
-                dataPayload.recorrencia_tipo = recursType;
-                dataPayload.recorrencia_inicio = document.getElementById('task-recurs-start').value;
-                dataPayload.recorrencia_fim = document.getElementById('task-recurs-end').value;
-                if (recursType === 'n_dias') dataPayload.recorrencia_intervalo = parseInt(document.getElementById('task-recurs-interval').value);
-                if (recursType === 'dia_mes') dataPayload.recorrencia_dia_mes = parseInt(document.getElementById('task-recurs-day-mes').value);
-                if (recursType === 'dia_semana') {
-                    const days = Array.from(document.querySelectorAll('.recurs-weekday:checked')).map(cb => cb.value);
-                    dataPayload.recorrencia_dias_semana = days.join(',');
+        try {
+            if (mode === 'insight') {
+                dataPayload.data_prevista = document.getElementById('task-date').value || null;
+                const res = await fetch(id ? `${API_URL}/insights/${id}` : `${API_URL}/insights`, {
+                    method: id ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${app.state.accessToken}` },
+                    body: JSON.stringify(dataPayload)
+                });
+                if (res.ok) { app.closeTaskModal(); app.loadData(); }
+                else { alert('Erro ao salvar insight.'); }
+            } else {
+                dataPayload.data = document.getElementById('task-date').value || null;
+                const recursType = document.getElementById('task-recurs-type').value;
+                if (recursType && !id) {
+                    const recursEnd = document.getElementById('task-recurs-end').value;
+                    if (!recursEnd) {
+                        alert('A data final da recorrência é obrigatória.');
+                        return;
+                    }
+                    dataPayload.recorrencia_tipo = recursType;
+                    dataPayload.recorrencia_inicio = document.getElementById('task-recurs-start').value || dataPayload.data;
+                    dataPayload.recorrencia_fim = recursEnd;
+                    if (recursType === 'n_dias') dataPayload.recorrencia_intervalo = parseInt(document.getElementById('task-recurs-interval').value);
+                    if (recursType === 'dia_mes') dataPayload.recorrencia_dia_mes = parseInt(document.getElementById('task-recurs-day-mes').value);
+                    if (recursType === 'dia_semana') {
+                        const days = Array.from(document.querySelectorAll('.recurs-weekday:checked')).map(cb => cb.value);
+                        dataPayload.recorrencia_dias_semana = days.join(',');
+                    }
+                }
+                const res = await fetch(id ? `${API_URL}/tasks/${id}` : `${API_URL}/tasks`, {
+                    method: id ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${app.state.accessToken}` },
+                    body: JSON.stringify(dataPayload)
+                });
+                if (res.ok) {
+                    app.closeTaskModal();
+                    app.loadData();
+                } else {
+                    const error = await res.json();
+                    alert('Erro ao salvar: ' + (error.detail || 'Verifique os dados.'));
                 }
             }
-            const res = await fetch(id ? `${API_URL}/tasks/${id}` : `${API_URL}/tasks`, {
-                method: id ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${app.state.accessToken}` },
-                body: JSON.stringify(dataPayload)
-            });
-            if (res.ok) { app.closeTaskModal(); app.loadData(); }
+        } catch (err) {
+            console.error('Submit error:', err);
+            alert('Erro de conexão com o servidor.');
         }
     },
 

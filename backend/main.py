@@ -14,11 +14,65 @@ import shutil
 
 from fastapi.staticfiles import StaticFiles
 
+from sqlalchemy import text
+
 # Load environment variables
 load_dotenv()
 
+# Schema migration logic
+def apply_migrations():
+    """Manually apply migrations for new columns to avoid data loss on Render"""
+    db = database.SessionLocal()
+    try:
+        # Check and add new columns to Atividade
+        columns_to_add = {
+            "recorrencia_tipo": "VARCHAR",
+            "recorrencia_intervalo": "INTEGER",
+            "recorrencia_dia_mes": "INTEGER",
+            "recorrencia_dias_semana": "VARCHAR",
+            "recorrencia_inicio": "DATE",
+            "recorrencia_fim": "DATE"
+        }
+        
+        for col, col_type in columns_to_add.items():
+            try:
+                db.execute(text(f"ALTER TABLE atividades ADD COLUMN {col} {col_type}"))
+                db.commit()
+                print(f"Added column {col} to atividades")
+            except Exception as e:
+                db.rollback()
+                # Ignore if column already exists
+                if "already exists" not in str(e).lower() and "duplicate column" not in str(e).lower():
+                    print(f"Migration error for {col}: {e}")
+
+        # Insights extended fields migration
+        insight_cols = {
+            "o_que": "VARCHAR",
+            "como": "VARCHAR",
+            "onde": "VARCHAR",
+            "cta": "VARCHAR",
+            "duracao": "VARCHAR",
+            "kpi_meta": "VARCHAR",
+            "tipo_dia": "VARCHAR",
+            "dia_semana": "VARCHAR",
+            "tema_macro": "VARCHAR",
+            "angulo": "VARCHAR",
+            "canal_area": "VARCHAR",
+            "prioridade": "VARCHAR"
+        }
+        for col, col_type in insight_cols.items():
+            try:
+                db.execute(text(f"ALTER TABLE insights ADD COLUMN {col} {col_type}"))
+                db.commit()
+            except Exception:
+                db.rollback()
+
+    finally:
+        db.close()
+
 # Create tables
 models.Base.metadata.create_all(bind=database.engine)
+apply_migrations()
 
 app = FastAPI(title="PHDPlan API")
 
